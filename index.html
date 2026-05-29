@@ -293,8 +293,9 @@ input[type="date"].inp::-webkit-calendar-picker-indicator{opacity:0;position:abs
   color:var(--ink-soft);border-radius:8px;padding:7px 10px;font-size:11.5px;font-weight:700;white-space:nowrap;transition:.15s}
 .ge-mode:hover{background:rgba(35,39,29,.09);color:var(--ink)}
 .ge-samt{width:100%;min-width:0;padding:8px 9px;font-size:13px;text-align:right}
-.ge-samt-wrap{display:none;flex:none;width:126px}
+.ge-samt-wrap{flex:none;width:126px}
 .ge-row.everyone .ge-seats{grid-template-columns:1fr}
+.ge-row:not(.everyone) .ge-samt-wrap{display:none}
 .ge-row.everyone .ge-samt-wrap{display:flex}
 .ge-row.everyone .ge-myres{display:none}
 /* amount field with a +/- sign toggle (lets iOS users enter a loss on the numeric pad) */
@@ -384,6 +385,11 @@ input[type="date"].inp::-webkit-calendar-picker-indicator{opacity:0;position:abs
   .hero{grid-template-columns:1fr}
   .dualchart{grid-template-columns:1fr}
   .row2{grid-template-columns:1fr}
+  .ge-seats{grid-template-columns:1fr}
+  .ge-foot{flex-wrap:wrap}
+  .ge-foot .ge-mode{order:1}
+  .ge-foot .ge-del{order:2;margin-left:auto}
+  .ge-foot .ge-myres{order:3;flex:1 1 100%}
   .fe-row{grid-template-columns:minmax(0,1fr) 120px 38px;gap:6px}
   .fe-row .fe-amt{padding:9px 8px}
   .ge-del,.fe-del{width:38px;height:40px}
