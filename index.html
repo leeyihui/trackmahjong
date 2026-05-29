@@ -282,6 +282,14 @@ select.inp{-webkit-appearance:none;-moz-appearance:none;appearance:none;
 .ge-foot{display:flex;align-items:center;gap:8px;margin-top:10px}
 .ge-rlabel{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft);font-weight:700;white-space:nowrap;flex:none}
 .ge-foot .ge-amt{flex:1}
+.ge-myres{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+.ge-mode{appearance:none;cursor:pointer;border:1px solid rgba(35,39,29,.18);background:rgba(35,39,29,.04);
+  color:var(--ink-soft);border-radius:8px;padding:7px 10px;font-size:11.5px;font-weight:700;white-space:nowrap;transition:.15s}
+.ge-mode:hover{background:rgba(35,39,29,.09);color:var(--ink)}
+.ge-samt{display:none;width:88px;flex:none;padding:8px 9px;font-size:13px}
+.ge-row.everyone .ge-seats{grid-template-columns:1fr}
+.ge-row.everyone .ge-samt{display:block}
+.ge-row.everyone .ge-myres{display:none}
 .fe-row{display:grid;grid-template-columns:minmax(0,1fr) 104px 42px;gap:8px;align-items:center}
 .fe-row .inp{padding:10px 12px}
 .fe-row.me .fe-me{display:flex;align-items:center;gap:8px;min-width:0;height:42px;padding:0 12px;
@@ -290,6 +298,7 @@ select.inp{-webkit-appearance:none;-moz-appearance:none;appearance:none;
 .fe-me .nm{font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fe-me .fe-tag{font-size:9.5px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;flex:none}
 .fe-row.me .fe-amt{background:rgba(35,39,29,.05);color:var(--ink-soft)}
+.fe-row.computed .fe-amt{background:rgba(47,163,114,.12);color:var(--ink-soft);border-color:rgba(47,163,114,.34)}
 .ge-del,.fe-del{appearance:none;border:1px solid rgba(35,39,29,.16);background:transparent;color:var(--ink-soft);
   border-radius:9px;width:42px;height:42px;flex:none;display:grid;place-items:center;padding:0;
   cursor:pointer;font-size:15px;line-height:1;transition:.15s}
@@ -361,6 +370,7 @@ select.inp{-webkit-appearance:none;-moz-appearance:none;appearance:none;
   .fe-row .fe-amt{padding:9px 8px}
   .ge-del,.fe-del{width:38px;height:40px}
   .ge-wsel{font-size:12px}
+  .ge-samt{width:68px;font-size:12px;padding:8px 6px}
   .fe-me .fe-tag{display:none}
   nav.tabs button .ico{display:none}
   nav.tabs button span.lbl{font-size:12.5px}
@@ -529,12 +539,15 @@ function sortedSessions(){
 function myNet(s){
   if(!state.me) return null;
   if(!s.games || !s.games.length) return null;
-  var t=0; s.games.forEach(function(g){ t+=Math.round(Number(g.amount)||0); }); return t;
+  var any=false, t=0;
+  s.games.forEach(function(g){ if(g.amount==null) return; any=true; t+=Math.round(Number(g.amount)||0); });
+  return any ? t : null;
 }
 function myGames(){
   var out=[];
   sortedSessions().forEach(function(s){
     (s.games||[]).forEach(function(g){
+      if(g.amount==null) return;
       out.push({date:s.date, place:s.place, seat:g.seat||"", amount:Math.round(Number(g.amount)||0), seats:g.seats||null});
     });
   });
@@ -913,7 +926,7 @@ function renderSessionList(){
   ss.forEach(function(s){
     var net=myNet(s);
     var nGames=(s.games||[]).length;
-    var roundChips=(s.games||[]).map(function(g){
+    var roundChips=(s.games||[]).filter(function(g){ return g.amount!=null; }).map(function(g){
       var si=seatInfo(g.seat);
       var seatTag=si?'<span class="seat" title="'+si.en+'">'+si.zh+'</span>':'';
       return '<span class="chip me">'+seatTag+'<span class="am '+cls(g.amount)+'">'+fmt(g.amount)+'</span></span>';
@@ -1047,9 +1060,11 @@ function csvCell(c){
   return /[",\n]/.test(c) ? '"'+c.replace(/"/g,'""')+'"' : c;
 }
 function exportCSV(){
-  var rows=[["date","place","game","seat","amount","east","south","west","north","note"]];
+  var rows=[["date","place","game","seat","amount","east","south","west","north","east_amt","south_amt","west_amt","north_amt","note"]];
   sortedSessions().forEach(function(s){
-    (s.games||[]).forEach(function(g,i){ var si=seatInfo(g.seat), se=g.seats||{}; rows.push([s.date,s.place||"",i+1,si?si.en:"",g.amount,se.E||"",se.S||"",se.W||"",se.N||"",s.note||""]); });
+    (s.games||[]).forEach(function(g,i){ var si=seatInfo(g.seat), se=g.seats||{}, sa=g.seatAmounts||{};
+      rows.push([s.date,s.place||"",i+1,si?si.en:"",g.amount==null?"":g.amount,se.E||"",se.S||"",se.W||"",se.N||"",
+        sa.E==null?"":sa.E,sa.S==null?"":sa.S,sa.W==null?"":sa.W,sa.N==null?"":sa.N,s.note||""]); });
   });
   var csv=rows.map(function(r){ return r.map(csvCell).join(","); }).join("\n");
   download("mahjong-rounds-"+stamp()+".csv", csv, "text/csv"); toast("Rounds CSV downloaded");
@@ -1098,7 +1113,7 @@ function openModal(id){
   document.getElementById("fNote").value=s? (s.note||"") : "";
   modalNames=computeModalNames(s);
   gamesEdit.innerHTML=""; finalEdit.innerHTML="";
-  if(s && s.games && s.games.length){ s.games.forEach(function(g){ addGameRow(g.seats || mineSeat(g.seat), g.amount); }); }
+  if(s && s.games && s.games.length){ s.games.forEach(function(g){ addGameRow(g.seats || mineSeat(g.seat), g.amount, g.seatAmounts, g.everyone); }); }
   else { addGameRow(mineSeat("E"), ""); }
   if(state.me) addMeRow();
   if(s && s.finalResults){ s.finalResults.forEach(function(r){ if(r.name!==state.me) addFinalRow(r.name,r.amount); }); }
@@ -1141,20 +1156,32 @@ function rebuildSeatOptions(){
     sel.innerHTML=seatPlayerOptions(cur); sel.value=cur;
   });
 }
-function addGameRow(seatsMap,amount){
-  seatsMap=seatsMap||{};
-  var row=document.createElement("div"); row.className="ge-row";
+function addGameRow(seatsMap,amount,seatAmounts,everyone){
+  seatsMap=seatsMap||{}; seatAmounts=seatAmounts||{};
+  var row=document.createElement("div"); row.className="ge-row"+(everyone?" everyone":"");
   var seatsHtml=SEATS.map(function(sd){
+    var av=seatAmounts[sd.v];
     return '<div class="ge-seatpick"><span class="ge-wind" title="'+sd.en+'">'+sd.zh+'</span>'+
-      '<select class="inp ge-wsel" data-wind="'+sd.v+'">'+seatPlayerOptions(seatsMap[sd.v]||"")+'</select></div>';
+      '<select class="inp ge-wsel" data-wind="'+sd.v+'">'+seatPlayerOptions(seatsMap[sd.v]||"")+'</select>'+
+      '<input class="inp mono ge-samt" data-wind="'+sd.v+'" type="number" inputmode="numeric" step="1" placeholder="0" value="'+(av===""||av==null?"":esc(av))+'"></div>';
   }).join("");
   row.innerHTML=
     '<div class="ge-seats">'+seatsHtml+'</div>'+
-    '<div class="ge-foot"><span class="ge-rlabel">Your result</span>'+
-      '<input class="inp mono ge-amt" type="number" inputmode="numeric" step="1" placeholder="0" value="'+(amount===""||amount==null?"":esc(amount))+'">'+
+    '<div class="ge-foot">'+
+      '<button class="ge-mode" type="button">'+(everyone?'– Just my result':'+ Everyone’s results')+'</button>'+
+      '<span class="ge-myres"><span class="ge-rlabel">Your result</span>'+
+        '<input class="inp mono ge-amt" type="number" inputmode="numeric" step="1" placeholder="0" value="'+(amount===""||amount==null?"":esc(amount))+'"></span>'+
       '<button class="ge-del" type="button" title="Remove game">✕</button></div>';
   row.querySelector(".ge-amt").addEventListener("input",updateRoundsSubtotal);
   row.querySelector(".ge-del").addEventListener("click",function(){ row.remove(); updateRoundsSubtotal(); syncFinalFromGames(); });
+  row.querySelector(".ge-mode").addEventListener("click",function(){
+    var on=row.classList.toggle("everyone");
+    this.innerHTML = on ? '– Just my result' : '+ Everyone’s results';
+    updateRoundsSubtotal(); syncFinalFromGames();
+  });
+  row.querySelectorAll(".ge-samt").forEach(function(inp){
+    inp.addEventListener("input",function(){ updateRoundsSubtotal(); applyComputedFinals(); updateFinalBalance(); });
+  });
   row.querySelectorAll(".ge-wsel").forEach(function(sel){
     sel.addEventListener("change",function(){
       if(sel.value==="__new__"){
@@ -1178,10 +1205,24 @@ function rowSeats(r){
 function collectGames(){
   var out=[];
   gamesEdit.querySelectorAll(".ge-row").forEach(function(r){
-    var amt=r.querySelector(".ge-amt").value;
+    var everyone=r.classList.contains("everyone");
     var seats=rowSeats(r);
-    var mySeat=""; if(state.me){ for(var i=0;i<SEATS.length;i++){ if(seats[SEATS[i].v]===state.me){ mySeat=SEATS[i].v; break; } } }
-    out.push({seat:mySeat, amount:amt===""?null:Math.round(Number(amt)||0), seats:seats});
+    var mySeat=""; if(state.me){ for(var i=0;i<SEATS.length;i++){ var wv=SEATS[i].v; if(seats[wv] && seats[wv].toLowerCase()===state.me.toLowerCase()){ mySeat=wv; break; } } }
+    var seatAmounts=null, amount;
+    if(everyone){
+      seatAmounts={};
+      r.querySelectorAll(".ge-seatpick").forEach(function(sp){
+        var sel=sp.querySelector(".ge-wsel"), w=sel.dataset.wind;
+        var nm=sel.value==="__new__"?"":sel.value;
+        var av=sp.querySelector(".ge-samt").value;
+        if(nm && av.trim()!=="") seatAmounts[w]=Math.round(Number(av)||0);
+      });
+      amount=(mySeat && seatAmounts[mySeat]!=null) ? seatAmounts[mySeat] : null;
+    } else {
+      var raw=r.querySelector(".ge-amt").value;
+      amount=raw===""?null:Math.round(Number(raw)||0);
+    }
+    out.push({seat:mySeat, amount:amount, seats:seats, seatAmounts:seatAmounts, everyone:everyone});
   });
   return out;
 }
@@ -1239,13 +1280,46 @@ function syncFinalFromGames(){
   });
   // add a row for each newly-seated player
   parts.forEach(function(n){ if(!present[n.toLowerCase()]) addFinalRow(n,"",true); });
+  // fill/lock totals for players whose per-game results are fully logged
+  applyComputedFinals();
   // drop untouched auto rows for players who are no longer seated
   finalEdit.querySelectorAll(".fe-row").forEach(function(r){
-    if(r.classList.contains("me") || r.dataset.auto!=="1") return;
+    if(r.classList.contains("me") || r.dataset.auto!=="1" || r.classList.contains("computed")) return;
     var nm=finalRowName(r), amtEmpty=r.querySelector(".fe-amt").value.trim()==="";
     if(amtEmpty && (!nm || !inGames[nm.toLowerCase()])) r.remove();
   });
   updateFinalBalance();
+}
+/* sum a player's per-game results, and how fully they're covered */
+function playerGameTally(name){
+  var key=name.toLowerCase(), seated=0, covered=0, total=0;
+  collectGames().forEach(function(g){
+    var w=null;
+    for(var i=0;i<SEATS.length;i++){ var ww=SEATS[i].v; if(g.seats[ww] && g.seats[ww].toLowerCase()===key){ w=ww; break; } }
+    if(!w) return;
+    seated++;
+    if(g.everyone && g.seatAmounts && g.seatAmounts[w]!=null){ covered++; total+=g.seatAmounts[w]; }
+  });
+  return {seated:seated, covered:covered, total:total};
+}
+/* when every game a player sat in has a per-game amount, auto-fill & lock their total */
+function applyComputedFinals(){
+  finalEdit.querySelectorAll(".fe-row").forEach(function(r){
+    if(r.classList.contains("me")) return;
+    var amtEl=r.querySelector(".fe-amt");
+    var nm=finalRowName(r);
+    var t=nm ? playerGameTally(nm) : {seated:0,covered:0,total:0};
+    if(nm && t.seated>0 && t.covered===t.seated){
+      amtEl.value=String(t.total);
+      amtEl.readOnly=true; amtEl.tabIndex=-1;
+      amtEl.title="Summed from this session’s per-game results";
+      r.classList.add("computed");
+    } else if(r.classList.contains("computed")){
+      r.classList.remove("computed");
+      amtEl.readOnly=false; amtEl.removeAttribute("tabindex"); amtEl.removeAttribute("title");
+      amtEl.value="";
+    }
+  });
 }
 function setFinalPlayerSelect(cell,value){
   var names=modalNames.filter(function(n){ return n!==state.me; });
@@ -1282,8 +1356,8 @@ function finalBalanceInfo(){
   var sum=0;
   named.forEach(function(r){ sum+=Math.round(Number(r.querySelector(".fe-amt").value)||0); });
   var target=null;
-  for(var i=0;i<named.length;i++){ if(!named[i].classList.contains("me") && named[i].querySelector(".fe-amt").value.trim()===""){ target=named[i]; break; } }
-  if(!target){ for(var j=named.length-1;j>=0;j--){ if(!named[j].classList.contains("me")){ target=named[j]; break; } } }
+  for(var i=0;i<named.length;i++){ if(!named[i].classList.contains("me") && !named[i].classList.contains("computed") && named[i].querySelector(".fe-amt").value.trim()===""){ target=named[i]; break; } }
+  if(!target){ for(var j=named.length-1;j>=0;j--){ if(!named[j].classList.contains("me") && !named[j].classList.contains("computed")){ target=named[j]; break; } } }
   return {named:named, sum:sum, target:target};
 }
 function updateFinalBalance(){
@@ -1321,12 +1395,12 @@ function saveModal(){
   var date=document.getElementById("fDate").value || stamp();
   var place=document.getElementById("fPlace").value.trim();
   var note=document.getElementById("fNote").value.trim();
-  var collected=collectGames().filter(function(g){ return g.amount!==null; });
+  var collected=collectGames().filter(function(g){ return g.amount!==null || (g.everyone && g.seatAmounts && Object.keys(g.seatAmounts).length>0); });
   for(var gi=0;gi<collected.length;gi++){
     var sv=collected[gi].seats, seenS={};
     for(var w in sv){ var snm=sv[w].toLowerCase(); if(seenS[snm]){ toast("A player is seated twice in one game"); return; } seenS[snm]=1; }
   }
-  var games=collected.map(function(g){ return {id:uid(), seat:g.seat||"", amount:g.amount, seats:g.seats}; });
+  var games=collected.map(function(g){ var o={id:uid(), seat:g.seat||"", amount:g.amount, seats:g.seats}; if(g.everyone && g.seatAmounts && Object.keys(g.seatAmounts).length){ o.everyone=true; o.seatAmounts=g.seatAmounts; } return o; });
   var others=[];
   finalEdit.querySelectorAll(".fe-row").forEach(function(r){
     if(r.classList.contains("me")) return;
@@ -1339,7 +1413,7 @@ function saveModal(){
   var finalResults=[];
   if(others.length){
     var settle=[];
-    if(state.me) settle.push({name:state.me, amount:games.reduce(function(a,g){return a+g.amount;},0)});
+    if(state.me) settle.push({name:state.me, amount:games.reduce(function(a,g){return a+(g.amount||0);},0)});
     others.forEach(function(o){ settle.push(o); });
     if(settle.length<2){ toast("A final tally needs at least two players"); return; }
     var seen={};
