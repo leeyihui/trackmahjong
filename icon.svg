@@ -31,10 +31,10 @@
     <rect x="118" y="84" width="276" height="344" rx="42" fill="url(#tile)" fill-opacity="0.55"/>
   </g>
 
-  <!-- one-circle (一筒) mark -->
+  <!-- one-circle (一筒) mark — sized with a comfortable margin from the tile edge -->
   <g>
-    <circle cx="256" cy="256" r="114" fill="none" stroke="#2fa372" stroke-width="32"/>
-    <circle cx="256" cy="256" r="73" fill="none" stroke="#d9b24a" stroke-width="26"/>
-    <circle cx="256" cy="256" r="35" fill="#d2503f"/>
+    <circle cx="256" cy="256" r="90" fill="none" stroke="#2fa372" stroke-width="25"/>
+    <circle cx="256" cy="256" r="57" fill="none" stroke="#d9b24a" stroke-width="20"/>
+    <circle cx="256" cy="256" r="27" fill="#d2503f"/>
   </g>
 </svg>
