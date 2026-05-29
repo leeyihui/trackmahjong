@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="felt" cx="50%" cy="-12%" r="145%">
+      <stop offset="0" stop-color="#1a4a32"/>
+      <stop offset="44%" stop-color="#0c2419"/>
+      <stop offset="100%" stop-color="#06120c"/>
+    </radialGradient>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fffdf6"/>
+      <stop offset="56%" stop-color="#f4ecd6"/>
+      <stop offset="100%" stop-color="#e7dbbb"/>
+    </linearGradient>
+    <radialGradient id="vig" cx="50%" cy="118%" r="95%">
+      <stop offset="0" stop-color="#000000" stop-opacity="0.45"/>
+      <stop offset="60%" stop-color="#000000" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#000000" flood-opacity="0.55"/>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" fill="url(#felt)"/>
+  <rect width="512" height="512" fill="url(#vig)"/>
+
+  <!-- mahjong tile -->
+  <g filter="url(#shadow)">
+    <rect x="118" y="84" width="276" height="344" rx="42" fill="url(#tile)"
+          stroke="#7a5c2a" stroke-opacity="0.34" stroke-width="2"/>
+    <!-- top inner highlight -->
+    <rect x="124" y="90" width="264" height="200" rx="36" fill="#ffffff" fill-opacity="0.35"/>
+    <rect x="118" y="84" width="276" height="344" rx="42" fill="url(#tile)" fill-opacity="0.55"/>
+  </g>
+
+  <!-- one-circle (一筒) mark -->
+  <g>
+    <circle cx="256" cy="256" r="114" fill="none" stroke="#2fa372" stroke-width="32"/>
+    <circle cx="256" cy="256" r="73" fill="none" stroke="#d9b24a" stroke-width="26"/>
+    <circle cx="256" cy="256" r="35" fill="#d2503f"/>
+  </g>
+</svg>
