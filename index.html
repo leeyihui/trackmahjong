@@ -292,11 +292,23 @@ input[type="date"].inp::-webkit-calendar-picker-indicator{opacity:0;position:abs
 .ge-mode{appearance:none;cursor:pointer;border:1px solid rgba(35,39,29,.18);background:rgba(35,39,29,.04);
   color:var(--ink-soft);border-radius:8px;padding:7px 10px;font-size:11.5px;font-weight:700;white-space:nowrap;transition:.15s}
 .ge-mode:hover{background:rgba(35,39,29,.09);color:var(--ink)}
-.ge-samt{display:none;width:88px;flex:none;padding:8px 9px;font-size:13px}
+.ge-samt{width:100%;min-width:0;padding:8px 9px;font-size:13px;text-align:right}
+.ge-samt-wrap{display:none;flex:none;width:126px}
 .ge-row.everyone .ge-seats{grid-template-columns:1fr}
-.ge-row.everyone .ge-samt{display:block}
+.ge-row.everyone .ge-samt-wrap{display:flex}
 .ge-row.everyone .ge-myres{display:none}
-.fe-row{display:grid;grid-template-columns:minmax(0,1fr) 104px 42px;gap:8px;align-items:center}
+/* amount field with a +/- sign toggle (lets iOS users enter a loss on the numeric pad) */
+.amt-field{display:flex;align-items:stretch;gap:6px;min-width:0}
+.amt-field .inp{flex:1;min-width:0}
+.ge-myres .amt-field{flex:1}
+.ge-amt,.ge-samt,.fe-amt{text-align:right}
+.signbtn{appearance:none;cursor:pointer;flex:none;width:34px;border:1px solid rgba(35,39,29,.18);
+  background:rgba(35,39,29,.05);color:var(--ink-soft);border-radius:9px;font-size:18px;font-weight:700;
+  line-height:1;display:grid;place-items:center;transition:.15s}
+.signbtn:hover{background:rgba(35,39,29,.1);color:var(--ink)}
+.signbtn.neg{background:rgba(210,80,63,.15);border-color:rgba(210,80,63,.42);color:var(--cinnabar)}
+.fe-row.me .signbtn,.fe-row.computed .signbtn{display:none}
+.fe-row{display:grid;grid-template-columns:minmax(0,1fr) 134px 42px;gap:8px;align-items:center}
 .fe-row .inp{padding:10px 12px}
 .fe-row.me .fe-me{display:flex;align-items:center;gap:8px;min-width:0;height:42px;padding:0 12px;
   background:rgba(217,178,74,.16);border:1px solid rgba(184,144,47,.4);border-radius:10px}
@@ -372,11 +384,12 @@ input[type="date"].inp::-webkit-calendar-picker-indicator{opacity:0;position:abs
   .hero{grid-template-columns:1fr}
   .dualchart{grid-template-columns:1fr}
   .row2{grid-template-columns:1fr}
-  .fe-row{grid-template-columns:minmax(0,1fr) 86px 38px;gap:6px}
+  .fe-row{grid-template-columns:minmax(0,1fr) 120px 38px;gap:6px}
   .fe-row .fe-amt{padding:9px 8px}
   .ge-del,.fe-del{width:38px;height:40px}
   .ge-wsel{font-size:12px}
-  .ge-samt{width:68px;font-size:12px;padding:8px 6px}
+  .ge-samt{font-size:12px;padding:8px 6px}
+  .ge-samt-wrap{width:108px}
   .fe-me .fe-tag{display:none}
   nav.tabs button .ico{display:none}
   nav.tabs button span.lbl{font-size:12.5px}
@@ -1147,6 +1160,29 @@ function computeModalNames(s){
   out.sort(function(a,b){ return a.toLowerCase()<b.toLowerCase()?-1:1; });
   return out;
 }
+/* --- signed amount input (numeric pad + a tap-to-negate toggle for losses) --- */
+function signBtn(){ return '<button class="signbtn" type="button" tabindex="-1" aria-label="Toggle win / loss">+</button>'; }
+function wireSign(field){
+  var btn=field.querySelector(".signbtn"), input=field.querySelector(".inp");
+  if(!btn || !input) return;
+  function refresh(){ var neg=input.value.trim().charAt(0)==="-"; btn.classList.toggle("neg",neg); btn.textContent=neg?"−":"+"; }
+  btn.addEventListener("click",function(){
+    var v=input.value.trim();
+    if(v==="") input.value="-";
+    else if(v==="-") input.value="";
+    else if(v.charAt(0)==="-") input.value=v.slice(1);
+    else input.value="-"+v;
+    refresh();
+    input.dispatchEvent(new Event("input",{bubbles:true}));
+    input.focus();
+  });
+  input.addEventListener("input",function(){
+    var s=input.value, neg=s.trim().charAt(0)==="-", clean=(neg?"-":"")+s.replace(/[^\d]/g,"");
+    if(clean!==s) input.value=clean;
+    refresh();
+  });
+  refresh();
+}
 /* --- rounds (your games) --- */
 function mineSeat(w){ var o={}; if(w && state.me) o[w]=state.me; return o; }
 function seatPlayerOptions(value){
@@ -1169,15 +1205,16 @@ function addGameRow(seatsMap,amount,seatAmounts,everyone){
     var av=seatAmounts[sd.v];
     return '<div class="ge-seatpick"><span class="ge-wind" title="'+sd.en+'">'+sd.zh+'</span>'+
       '<select class="inp ge-wsel" data-wind="'+sd.v+'">'+seatPlayerOptions(seatsMap[sd.v]||"")+'</select>'+
-      '<input class="inp mono ge-samt" data-wind="'+sd.v+'" type="number" inputmode="numeric" step="1" placeholder="0" value="'+(av===""||av==null?"":esc(av))+'"></div>';
+      '<span class="amt-field ge-samt-wrap">'+signBtn()+'<input class="inp mono ge-samt" data-wind="'+sd.v+'" type="text" inputmode="numeric" placeholder="0" value="'+(av===""||av==null?"":esc(av))+'"></span></div>';
   }).join("");
   row.innerHTML=
     '<div class="ge-seats">'+seatsHtml+'</div>'+
     '<div class="ge-foot">'+
       '<button class="ge-mode" type="button">'+(everyone?'– Just my result':'+ Everyone’s results')+'</button>'+
       '<span class="ge-myres"><span class="ge-rlabel">Your result</span>'+
-        '<input class="inp mono ge-amt" type="number" inputmode="numeric" step="1" placeholder="0" value="'+(amount===""||amount==null?"":esc(amount))+'"></span>'+
+        '<span class="amt-field">'+signBtn()+'<input class="inp mono ge-amt" type="text" inputmode="numeric" placeholder="0" value="'+(amount===""||amount==null?"":esc(amount))+'"></span></span>'+
       '<button class="ge-del" type="button" title="Remove game">✕</button></div>';
+  row.querySelectorAll(".amt-field").forEach(wireSign);
   row.querySelector(".ge-amt").addEventListener("input",updateRoundsSubtotal);
   row.querySelector(".ge-del").addEventListener("click",function(){ row.remove(); updateRoundsSubtotal(); syncFinalFromGames(); });
   row.querySelector(".ge-mode").addEventListener("click",function(){
@@ -1246,7 +1283,7 @@ function addMeRow(){
   var row=document.createElement("div"); row.className="fe-row me";
   row.innerHTML=
     '<div class="fe-me"><span class="star">★</span><span class="nm">'+esc(state.me)+'</span><span class="fe-tag">you · from your games</span></div>'+
-    '<input class="inp mono fe-amt" type="number" value="" readonly tabindex="-1">'+
+    '<input class="inp mono fe-amt" type="text" value="" readonly tabindex="-1">'+
     '<span></span>';
   finalEdit.appendChild(row);
 }
@@ -1255,9 +1292,10 @@ function addFinalRow(name,amount,auto){
   row.dataset.auto=auto?"1":"0";
   row.innerHTML=
     '<div class="pe-player"></div>'+
-    '<input class="inp mono fe-amt" type="number" inputmode="numeric" step="1" placeholder="0" value="'+(amount===""||amount==null?"":esc(amount))+'">'+
+    '<span class="amt-field">'+signBtn()+'<input class="inp mono fe-amt" type="text" inputmode="numeric" placeholder="0" value="'+(amount===""||amount==null?"":esc(amount))+'"></span>'+
     '<button class="fe-del" type="button" title="Remove">✕</button>';
   setFinalPlayerSelect(row.querySelector(".pe-player"), name||"");
+  wireSign(row.querySelector(".amt-field"));
   // typing an amount makes the row "real" so it's never auto-pruned
   row.querySelector(".fe-amt").addEventListener("input",function(){ row.dataset.auto="0"; updateFinalBalance(); });
   row.querySelector(".fe-del").addEventListener("click",function(){ row.remove(); updateFinalBalance(); });
