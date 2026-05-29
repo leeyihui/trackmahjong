@@ -431,7 +431,7 @@ select.inp{-webkit-appearance:none;-moz-appearance:none;appearance:none;
       <div class="rsub" id="roundsSubtotal"></div>
 
       <div class="fld" style="margin-top:18px;margin-bottom:6px">
-        <label>Final tally <span class="lbl-sub">(everyone's total — at session end)</span></label>
+        <label>Final tally <span class="lbl-sub">(players auto-filled from your games — enter each total)</span></label>
       </div>
       <div class="final-edit" id="finalEdit"></div>
       <button class="btn btn-ghost btn-sm" id="addFinalPlayer" type="button">+ Add player</button>
@@ -1102,6 +1102,7 @@ function openModal(id){
   else { addGameRow(mineSeat("E"), ""); }
   if(state.me) addMeRow();
   if(s && s.finalResults){ s.finalResults.forEach(function(r){ if(r.name!==state.me) addFinalRow(r.name,r.amount); }); }
+  syncFinalFromGames();
   updateRoundsSubtotal();
   scrim.classList.add("open");
   document.body.style.overflow="hidden";
@@ -1153,7 +1154,7 @@ function addGameRow(seatsMap,amount){
       '<input class="inp mono ge-amt" type="number" inputmode="numeric" step="1" placeholder="0" value="'+(amount===""||amount==null?"":esc(amount))+'">'+
       '<button class="ge-del" type="button" title="Remove game">✕</button></div>';
   row.querySelector(".ge-amt").addEventListener("input",updateRoundsSubtotal);
-  row.querySelector(".ge-del").addEventListener("click",function(){ row.remove(); updateRoundsSubtotal(); });
+  row.querySelector(".ge-del").addEventListener("click",function(){ row.remove(); updateRoundsSubtotal(); syncFinalFromGames(); });
   row.querySelectorAll(".ge-wsel").forEach(function(sel){
     sel.addEventListener("change",function(){
       if(sel.value==="__new__"){
@@ -1164,6 +1165,7 @@ function addGameRow(seatsMap,amount){
         } else { sel.value=""; }
       }
       updateRoundsSubtotal();
+      syncFinalFromGames();
     });
   });
   gamesEdit.appendChild(row);
@@ -1201,16 +1203,49 @@ function addMeRow(){
     '<span></span>';
   finalEdit.appendChild(row);
 }
-function addFinalRow(name,amount){
+function addFinalRow(name,amount,auto){
   var row=document.createElement("div"); row.className="fe-row";
+  row.dataset.auto=auto?"1":"0";
   row.innerHTML=
     '<div class="pe-player"></div>'+
     '<input class="inp mono fe-amt" type="number" inputmode="numeric" step="1" placeholder="0" value="'+(amount===""||amount==null?"":esc(amount))+'">'+
     '<button class="fe-del" type="button" title="Remove">✕</button>';
   setFinalPlayerSelect(row.querySelector(".pe-player"), name||"");
-  row.querySelector(".fe-amt").addEventListener("input",updateFinalBalance);
+  // typing an amount makes the row "real" so it's never auto-pruned
+  row.querySelector(".fe-amt").addEventListener("input",function(){ row.dataset.auto="0"; updateFinalBalance(); });
   row.querySelector(".fe-del").addEventListener("click",function(){ row.remove(); updateFinalBalance(); });
   finalEdit.appendChild(row);
+}
+/* who's seated across all the games (excluding me) */
+function gameParticipants(){
+  var seen={}, out=[];
+  gamesEdit.querySelectorAll(".ge-wsel").forEach(function(sel){
+    var v=sel.value==="__new__"?"":sel.value;
+    if(!v) return;
+    if(state.me && v.toLowerCase()===state.me.toLowerCase()) return;
+    var k=v.toLowerCase();
+    if(!seen[k]){ seen[k]=1; out.push(v); }
+  });
+  return out;
+}
+/* keep the final tally's player rows in step with who played the games */
+function syncFinalFromGames(){
+  var parts=gameParticipants(), inGames={};
+  parts.forEach(function(n){ inGames[n.toLowerCase()]=1; });
+  var present={};
+  finalEdit.querySelectorAll(".fe-row").forEach(function(r){
+    if(r.classList.contains("me")) return;
+    var nm=finalRowName(r); if(nm) present[nm.toLowerCase()]=1;
+  });
+  // add a row for each newly-seated player
+  parts.forEach(function(n){ if(!present[n.toLowerCase()]) addFinalRow(n,"",true); });
+  // drop untouched auto rows for players who are no longer seated
+  finalEdit.querySelectorAll(".fe-row").forEach(function(r){
+    if(r.classList.contains("me") || r.dataset.auto!=="1") return;
+    var nm=finalRowName(r), amtEmpty=r.querySelector(".fe-amt").value.trim()==="";
+    if(amtEmpty && (!nm || !inGames[nm.toLowerCase()])) r.remove();
+  });
+  updateFinalBalance();
 }
 function setFinalPlayerSelect(cell,value){
   var names=modalNames.filter(function(n){ return n!==state.me; });
@@ -1221,6 +1256,7 @@ function setFinalPlayerSelect(cell,value){
   opts+='<option value="__new__">＋ New player…</option>';
   cell.innerHTML='<select class="inp pe-pick">'+opts+'</select>';
   cell.querySelector(".pe-pick").addEventListener("change",function(e){
+    var prow=cell.parentElement; if(prow) prow.dataset.auto="0";
     if(e.target.value==="__new__") setFinalPlayerInput(cell,"");
     else updateFinalBalance();
   });
@@ -1229,7 +1265,7 @@ function setFinalPlayerInput(cell,value){
   cell.innerHTML='<input class="inp pe-name" type="text" placeholder="New player name" value="'+esc(value||"")+'">'+
     '<button class="pe-back" type="button" title="Choose from list">▾</button>';
   var inp=cell.querySelector(".pe-name");
-  inp.addEventListener("input",updateFinalBalance);
+  inp.addEventListener("input",function(){ var prow=cell.parentElement; if(prow) prow.dataset.auto="0"; updateFinalBalance(); });
   cell.querySelector(".pe-back").addEventListener("click",function(){ setFinalPlayerSelect(cell,""); updateFinalBalance(); });
   inp.focus(); updateFinalBalance();
 }
@@ -1254,7 +1290,7 @@ function updateFinalBalance(){
   var info=finalBalanceInfo(), sum=info.sum;
   var b=document.getElementById("balance");
   var btn=document.getElementById("balanceBtn");
-  var hasOthers=info.named.some(function(r){ return !r.classList.contains("me"); });
+  var hasOthers=info.named.some(function(r){ return !r.classList.contains("me") && r.querySelector(".fe-amt").value.trim()!==""; });
   if(!hasOthers){
     b.className="balance ok";
     document.getElementById("balLabel").textContent="No final tally yet (optional)";
@@ -1295,7 +1331,9 @@ function saveModal(){
   finalEdit.querySelectorAll(".fe-row").forEach(function(r){
     if(r.classList.contains("me")) return;
     var nm=finalRowName(r); if(!nm) return;
-    others.push({name:nm, amount:Math.round(Number(r.querySelector(".fe-amt").value)||0)});
+    var raw=r.querySelector(".fe-amt").value.trim();
+    if(raw==="") return; // auto-listed but no total entered → not part of the tally
+    others.push({name:nm, amount:Math.round(Number(raw)||0)});
   });
   if(!games.length && !others.length){ toast("Add at least one game (your round result)"); return; }
   var finalResults=[];
@@ -1335,7 +1373,7 @@ document.getElementById("topAdd").addEventListener("click",function(){ openModal
 document.getElementById("addGame").addEventListener("click",function(){
   var rows=gamesEdit.querySelectorAll(".ge-row");
   var prev = rows.length ? rowSeats(rows[rows.length-1]) : mineSeat("E");
-  addGameRow(prev, ""); updateRoundsSubtotal();
+  addGameRow(prev, ""); updateRoundsSubtotal(); syncFinalFromGames();
   var nr=gamesEdit.querySelectorAll(".ge-row"); var last=nr[nr.length-1];
   if(last){ var a=last.querySelector(".ge-amt"); if(a) a.focus(); }
 });
